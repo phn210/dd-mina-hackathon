@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "zkapp-cli": "^0.10.1"
+  }
+}
