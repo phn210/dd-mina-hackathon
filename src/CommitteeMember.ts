@@ -9,6 +9,26 @@ import {
   Scalar,
   Encryption,
 } from 'snarkyjs';
+import { MerkleWitnessKey, MerkleWitnessCommittee } from './Committee';
+
+export const ContributionStage: { [key: string]: Field } = {
+  ROUND_1: Field(0),
+  ROUND_2: Field(1),
+  DECRYPTION: Field(2),
+};
+
+let w = {
+  isLeft: false,
+  sibling: Field(0),
+};
+
+let dummyWitnessCommittee = Array.from(
+  Array(MerkleWitnessCommittee.height - 1).keys()
+).map(() => w);
+
+let dummyWitnessKey = Array.from(Array(MerkleWitnessKey.height - 1).keys()).map(
+  () => w
+);
 
 export class SecretPolynomial extends Struct({
   C: [Group],
@@ -18,6 +38,8 @@ export class SecretPolynomial extends Struct({
 
 export class Round1Contribution extends Struct({
   C: [Group],
+  witnessCommittee: MerkleWitnessCommittee,
+  witnessKey: MerkleWitnessKey,
 }) {
   get hash(): Field {
     let packed: Field[] = [];
@@ -30,6 +52,8 @@ export class Round1Contribution extends Struct({
 
 export class Round2Contribution extends Struct({
   encF: [Field],
+  witnessCommittee: MerkleWitnessCommittee,
+  witnessKey: MerkleWitnessKey,
 }) {
   get hash(): Field {
     let packed: Field[] = [];
@@ -43,6 +67,8 @@ export class Round2Contribution extends Struct({
 export class DecryptionContribution extends Struct({
   Dx: [Field],
   Dy: [Field],
+  witnessCommittee: MerkleWitnessCommittee,
+  witnessKey: MerkleWitnessKey,
 }) {
   get hash(): Field {
     return Field(0);
@@ -52,6 +78,7 @@ export class DecryptionContribution extends Struct({
 export class CommitteeMember extends Struct({
   publicKey: PublicKey,
   index: UInt32,
+  witness: MerkleWitnessCommittee,
   T: Number,
   N: Number,
 }) {
@@ -61,6 +88,10 @@ export class CommitteeMember extends Struct({
       result = result.add(round1Contributions[i].C[0]);
     }
     return PublicKey.fromGroup(result);
+  }
+
+  get hash(): Field {
+    return Poseidon.hash(this.publicKey.toFields());
   }
 
   calculatePolynomialValue(a: Field[], x: number): Field {
@@ -87,7 +118,11 @@ export class CommitteeMember extends Struct({
   }
 
   getRound1Contribution(secret: SecretPolynomial): Round1Contribution {
-    return new Round1Contribution({ C: secret.C });
+    return new Round1Contribution({
+      C: secret.C,
+      witnessCommittee: new MerkleWitnessCommittee(dummyWitnessCommittee),
+      witnessKey: new MerkleWitnessKey(dummyWitnessKey),
+    });
   }
 
   submitRound1Contribution(contribution: Round1Contribution) {
@@ -111,7 +146,11 @@ export class CommitteeMember extends Struct({
         );
       }
     }
-    return new Round2Contribution({ encF: encryptions });
+    return new Round2Contribution({
+      encF: encryptions,
+      witnessCommittee: new MerkleWitnessCommittee(dummyWitnessCommittee),
+      witnessKey: new MerkleWitnessKey(dummyWitnessKey),
+    });
   }
 
   submitRound2Contribution(contribution: Round2Contribution) {

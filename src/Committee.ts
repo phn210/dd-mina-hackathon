@@ -12,9 +12,11 @@ import {
   Group,
   Scalar,
   Bool,
+  Reducer,
 } from 'snarkyjs';
 import {
   CommitteeMember,
+  ContributionStage,
   DecryptionContribution,
   Round1Contribution,
   Round2Contribution,
@@ -25,96 +27,86 @@ export const THRESHOLD = {
   N: 3,
 };
 
-export type Contribution = {
-  type: ContributionStage;
-  data: Round1Contribution | Round2Contribution | DecryptionContribution;
-};
-
-export enum ContributionStage {
-  ROUND_1,
-  ROUND_2,
-  DECRYPTION,
-}
-
-export class MerkleWitness8 extends MerkleWitness(8) {}
+export class MerkleWitnessKey extends MerkleWitness(20) {}
 export class MerkleWitnessCommittee extends MerkleWitness(
   Math.ceil(Math.log2(THRESHOLD.N))
 ) {}
-
-let w = {
-  isLeft: false,
-  sibling: Field(0),
-};
-let dummyWitness = Array.from(Array(MerkleWitness8.height - 1).keys()).map(
-  () => w
-);
 
 export class Committee_ extends SmartContract {
   /**
    * Root of the merkle tree that stores all committee members.
    */
-  @state(Field) committeMembers = State<Field>();
+  @state(Field) committeeMembers = State<Field>();
 
   /**
-   * TODO
    * Check if the member existed in the on-chain storage root
    * @param committeeMember
    * @returns
    */
   @method isMember(committeeMember: CommitteeMember): Bool {
-    return new Bool(false);
+    // Get committee member roots
+    let committeeMembers = this.committeeMembers.get();
+    this.committeeMembers.assertEquals(committeeMembers);
+
+    return committeeMember.witness
+      .calculateRoot(committeeMember.hash)
+      .equals(committeeMembers);
   }
 }
 
-export class CommitteeContribution_ extends SmartContract {
+export abstract class CommitteeContribution_ extends SmartContract {
   /**
    * Root of the merkle tree that stores all contributions.
    */
   @state(Field) contributions = State<Field>();
 
   /**
-   * TODO
    * Submit contribution for a specific stage in the key generation process
    * @param committeeMember
    * @param contribution
    * @param keyId
    * @returns
    */
-  @method submitContribution(
+  abstract submitContribution(
     committeeMember: CommitteeMember,
-    contribution: Contribution,
+    contribution:
+      | Round1Contribution
+      | Round2Contribution
+      | DecryptionContribution,
     keyId: Field
-  ) {
-    let contributionHash = contribution.data.hash;
-
-    switch (contribution.type) {
-      case ContributionStage.ROUND_1: {
-        break;
-      }
-      case ContributionStage.ROUND_2: {
-        break;
-      }
-      case ContributionStage.DECRYPTION: {
-        break;
-      }
-    }
-    return;
-  }
+  ): void;
 
   /**
-   * TODO
    * Check the status of a committee member's contribution in generating a key
    * @param committeeMember
    * @param keyId
    * @returns
    */
+  abstract submittedContribution(
+    committeeMember: CommitteeMember,
+    keyId: Field
+  ): [{ stage: Field; submitted: Bool }];
+}
+
+export class Round1Contribution_ extends CommitteeContribution_ {
+  // TODO
+  @method submitContribution(
+    committeeMember: CommitteeMember,
+    contribution: Round1Contribution,
+    keyId: Field
+  ) {
+    let contributionHash = contribution.hash;
+    return;
+  }
+
+  // TODO
   @method submittedContribution(
     committeeMember: CommitteeMember,
     keyId: Field
-  ): [{ contributionStage: ContributionStage; submitted: Bool }] {
+  ): [{ stage: Field; submitted: Bool }] {
     return [
       {
-        contributionStage: ContributionStage.ROUND_1,
+        stage: ContributionStage.ROUND_1,
         submitted: new Bool(false),
       },
     ];
