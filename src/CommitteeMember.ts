@@ -10,6 +10,7 @@ import {
   Encryption,
 } from 'snarkyjs';
 import { MerkleWitnessKey, MerkleWitnessCommittee } from './Committee';
+import { OffchainStorage } from './offchainStorage';
 
 export const ContributionStage: { [key: string]: Field } = {
   ROUND_1: Field(0),
@@ -36,6 +37,14 @@ export class SecretPolynomial extends Struct({
   f: [Field],
 }) {}
 
+export class Round1Bundle extends Struct({
+  root: Field,
+  witness: MerkleWitnessKey,
+}) {
+  get hash(): Field {
+    return Poseidon.hash(this.root.toFields());
+  }
+}
 export class Round1Contribution extends Struct({
   C: [Group],
   witnessCommittee: MerkleWitnessCommittee,
@@ -47,6 +56,15 @@ export class Round1Contribution extends Struct({
       packed.concat(this.C[i].toFields());
     }
     return Poseidon.hash(packed);
+  }
+}
+
+export class Round2Bundle extends Struct({
+  root: Field,
+  witness: MerkleWitnessKey,
+}) {
+  get hash(): Field {
+    return Poseidon.hash(this.root.toFields());
   }
 }
 
@@ -117,11 +135,20 @@ export class CommitteeMember extends Struct({
     return { C: C, a0: a[0], f: f };
   }
 
-  getRound1Contribution(secret: SecretPolynomial): Round1Contribution {
+  getRound1Contribution(
+    secret: SecretPolynomial,
+    contributionStorage: OffchainStorage<Round1Contribution>,
+    bundleStorage: OffchainStorage<Round1Bundle>,
+    keyId: Field
+  ): Round1Contribution {
     return new Round1Contribution({
       C: secret.C,
-      witnessCommittee: new MerkleWitnessCommittee(dummyWitnessCommittee),
-      witnessKey: new MerkleWitnessKey(dummyWitnessKey),
+      witnessCommittee: new MerkleWitnessCommittee(
+        contributionStorage.getWitness(this.index.toBigint() - 1n)
+      ),
+      witnessKey: new MerkleWitnessKey(
+        bundleStorage.getWitness(keyId.toBigInt())
+      ),
     });
   }
 
@@ -131,7 +158,10 @@ export class CommitteeMember extends Struct({
 
   getRound2Contribution(
     secret: SecretPolynomial,
-    publicKeys: Group[]
+    publicKeys: Group[],
+    contributionStorage: OffchainStorage<Round1Contribution>,
+    bundleStorage: OffchainStorage<Round1Bundle>,
+    keyId: Field
   ): Round2Contribution {
     let encryptions = new Array<Field>(this.N);
     for (let i = 0; i < this.N; i++) {
@@ -148,8 +178,12 @@ export class CommitteeMember extends Struct({
     }
     return new Round2Contribution({
       encF: encryptions,
-      witnessCommittee: new MerkleWitnessCommittee(dummyWitnessCommittee),
-      witnessKey: new MerkleWitnessKey(dummyWitnessKey),
+      witnessCommittee: new MerkleWitnessCommittee(
+        contributionStorage.getWitness(this.index.toBigint() - 1n)
+      ),
+      witnessKey: new MerkleWitnessKey(
+        bundleStorage.getWitness(keyId.toBigInt())
+      ),
     });
   }
 
