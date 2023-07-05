@@ -113,7 +113,7 @@ export abstract class CommitteeContribution_ extends SmartContract {
    * Aggregrate contribution and update state
    * @param keyId
    */
-  abstract aggregateContributions(keyId: Field): Field;
+  abstract aggregateContributions(keyId: Field): Bool;
 
   /**
    * Check the status of a committee member's contribution in generating a key
@@ -159,41 +159,39 @@ export class Round1Contribution_ extends CommitteeContribution_ {
     });
   }
 
-  @method aggregateContributions(keyId: Field): Field {
+  @method aggregateContributions(keyId: Field): Bool {
     let contributions = this.contributions.get();
     this.contributions.assertEquals(contributions);
 
     // FIXME Action[0]
     let actions = this.reducer
       .getActions({ fromActionState: contributions })
-      .filter((ctb) => ctb[0].keyId.equals(keyId));
+      .filter((action) => action[0].keyId.equals(keyId));
 
     Field.from(actions.length).assertEquals(Field.from(THRESHOLD.N));
 
-    let { state: newBundleRoot, actionState: newContributions } =
-      this.reducer.reduce(
-        actions,
-        Field,
-        (state: Field, action: Round1Contribution) => {
-          let bundleRoot = action.witnessCommittee.calculateRoot(
-            action.getHash()
-          );
-          bundleRoot.assertEquals(action.bundleRoot);
-          return action.witnessKey.calculateRoot(
-            new ContributionBundle({
-              root: action.bundleRoot,
-              witness: action.witnessKey,
-            }).getHash()
-          );
-        },
-        { state: Field(0), actionState: contributions }
-      );
+    let { state: newContributions } = this.reducer.reduce(
+      actions,
+      Field,
+      (state: Field, action: Round1Contribution) => {
+        let bundleRoot = action.witnessCommittee.calculateRoot(
+          action.getHash()
+        );
+        bundleRoot.assertEquals(action.bundleRoot);
+        return action.witnessKey.calculateRoot(
+          new ContributionBundle({
+            root: action.bundleRoot,
+            witness: action.witnessKey,
+          }).getHash()
+        );
+      },
+      { state: Field(0), actionState: contributions }
+    );
 
     this.contributions.set(newContributions);
 
     this.emitEvent('newContributionState', newContributions);
-
-    return Field(0);
+    return Bool(true);
   }
 
   // TODO
@@ -237,7 +235,7 @@ export class Round2Contribution_ extends CommitteeContribution_ {
     });
   }
 
-  @method aggregateContributions(keyId: Field): Field {
+  @method aggregateContributions(keyId: Field): Bool {
     let contributions = this.contributions.get();
     this.contributions.assertEquals(contributions);
 
@@ -262,7 +260,7 @@ export class Round2Contribution_ extends CommitteeContribution_ {
     this.contributions.set(newContributions);
 
     this.emitEvent('newContributionState', newContributions);
-    return Field(0);
+    return Bool(true);
   }
 
   // TODO

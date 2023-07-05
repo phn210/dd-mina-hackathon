@@ -168,6 +168,14 @@ export class CommitteeMember extends Struct({
     });
   }
 
+  calculatePublicKey(publicKeys: Group[]): PublicKey {
+    let result = Group.zero;
+    for (let i = 0; i < publicKeys.length; i++) {
+      result = result.add(publicKeys[i]);
+    }
+    return PublicKey.fromGroup(result);
+  }
+
   calculateShare() {
     return;
   }
