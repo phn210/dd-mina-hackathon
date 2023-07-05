@@ -1,12 +1,4 @@
-import {
-  Field,
-  SmartContract,
-  state,
-  State,
-  method,
-  Poseidon,
-  Reducer,
-} from 'snarkyjs';
+import { Field, SmartContract, state, State, method, Reducer } from 'snarkyjs';
 
 export class DKG extends SmartContract {
   /**

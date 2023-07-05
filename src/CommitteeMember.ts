@@ -4,7 +4,6 @@ import {
   Struct,
   UInt32,
   PublicKey,
-  MerkleWitness,
   Group,
   Scalar,
   Encryption,
@@ -18,39 +17,28 @@ export const ContributionStage: { [key: string]: Field } = {
   DECRYPTION: Field(2),
 };
 
-let w = {
-  isLeft: false,
-  sibling: Field(0),
-};
-
-let dummyWitnessCommittee = Array.from(
-  Array(MerkleWitnessCommittee.height - 1).keys()
-).map(() => w);
-
-let dummyWitnessKey = Array.from(Array(MerkleWitnessKey.height - 1).keys()).map(
-  () => w
-);
-
 export class SecretPolynomial extends Struct({
   C: [Group],
   a0: Field,
   f: [Field],
 }) {}
 
-export class Round1Bundle extends Struct({
+export class ContributionBundle extends Struct({
   root: Field,
   witness: MerkleWitnessKey,
 }) {
-  get hash(): Field {
+  getHash(): Field {
     return Poseidon.hash(this.root.toFields());
   }
 }
 export class Round1Contribution extends Struct({
   C: [Group],
   witnessCommittee: MerkleWitnessCommittee,
+  bundleRoot: Field,
   witnessKey: MerkleWitnessKey,
+  keyId: Field,
 }) {
-  get hash(): Field {
+  getHash(): Field {
     let packed: Field[] = [];
     for (let i = 0; i < this.C.length; i++) {
       packed.concat(this.C[i].toFields());
@@ -59,21 +47,14 @@ export class Round1Contribution extends Struct({
   }
 }
 
-export class Round2Bundle extends Struct({
-  root: Field,
-  witness: MerkleWitnessKey,
-}) {
-  get hash(): Field {
-    return Poseidon.hash(this.root.toFields());
-  }
-}
-
 export class Round2Contribution extends Struct({
   encF: [Field],
   witnessCommittee: MerkleWitnessCommittee,
+  bundleRoot: Field,
   witnessKey: MerkleWitnessKey,
+  keyId: Field,
 }) {
-  get hash(): Field {
+  getHash(): Field {
     let packed: Field[] = [];
     for (let i = 0; i < this.encF.length; i++) {
       packed.concat(this.encF);
@@ -88,7 +69,7 @@ export class DecryptionContribution extends Struct({
   witnessCommittee: MerkleWitnessCommittee,
   witnessKey: MerkleWitnessKey,
 }) {
-  get hash(): Field {
+  getHash(): Field {
     return Field(0);
   }
 }
@@ -108,7 +89,7 @@ export class CommitteeMember extends Struct({
     return PublicKey.fromGroup(result);
   }
 
-  get hash(): Field {
+  getHash(): Field {
     return Poseidon.hash(this.publicKey.toFields());
   }
 
@@ -138,7 +119,7 @@ export class CommitteeMember extends Struct({
   getRound1Contribution(
     secret: SecretPolynomial,
     contributionStorage: OffchainStorage<Round1Contribution>,
-    bundleStorage: OffchainStorage<Round1Bundle>,
+    bundleStorage: OffchainStorage<ContributionBundle>,
     keyId: Field
   ): Round1Contribution {
     return new Round1Contribution({
@@ -146,21 +127,19 @@ export class CommitteeMember extends Struct({
       witnessCommittee: new MerkleWitnessCommittee(
         contributionStorage.getWitness(this.index.toBigint() - 1n)
       ),
+      bundleRoot: bundleStorage.getRoot(),
       witnessKey: new MerkleWitnessKey(
         bundleStorage.getWitness(keyId.toBigInt())
       ),
+      keyId: keyId,
     });
-  }
-
-  submitRound1Contribution(contribution: Round1Contribution) {
-    return;
   }
 
   getRound2Contribution(
     secret: SecretPolynomial,
     publicKeys: Group[],
     contributionStorage: OffchainStorage<Round1Contribution>,
-    bundleStorage: OffchainStorage<Round1Bundle>,
+    bundleStorage: OffchainStorage<ContributionBundle>,
     keyId: Field
   ): Round2Contribution {
     let encryptions = new Array<Field>(this.N);
@@ -181,14 +160,12 @@ export class CommitteeMember extends Struct({
       witnessCommittee: new MerkleWitnessCommittee(
         contributionStorage.getWitness(this.index.toBigint() - 1n)
       ),
+      bundleRoot: bundleStorage.getRoot(),
       witnessKey: new MerkleWitnessKey(
         bundleStorage.getWitness(keyId.toBigInt())
       ),
+      keyId: keyId,
     });
-  }
-
-  submitRound2Contribution(contribution: Round2Contribution) {
-    return;
   }
 
   calculateShare() {

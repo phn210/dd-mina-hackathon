@@ -6,7 +6,7 @@ export { OffchainStorage };
 
 class OffchainStorage<
   V extends {
-    get hash(): Field;
+    getHash(): Field;
   }
 > extends Map<bigint, V> {
   private merkleTree;
@@ -18,7 +18,7 @@ class OffchainStorage<
 
   set(key: bigint, value: V): this {
     super.set(key, value);
-    this.merkleTree.setLeaf(key, value.hash);
+    this.merkleTree.setLeaf(key, value.getHash());
     return this;
   }
 
